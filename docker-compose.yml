@@ -17,7 +17,8 @@ services:
       # ./app フォルダをコンテナ内の /app にマウント
       - ./app:/app
       # node_modules はコンテナ専用にする（Windows 側のものと混ざらないように）
-      - /app/node_modules
+      # 名前付きボリュームなので、docker compose down しても残り、次の起動が速い
+      - app_node_modules:/app/node_modules
     environment:
       PORT: 3000
       # Prisma が MySQL に接続するための URL（ホスト名は mysql サービス名）
@@ -70,3 +71,4 @@ services:
 volumes:
   # 名前付きボリュームの作成
   mysqldata:
+  app_node_modules:

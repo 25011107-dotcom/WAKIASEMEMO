@@ -24,6 +24,8 @@
 
 3. テーブルを作る
 
+   `docker compose logs -f app` で `Server running at http://localhost:3000` が出るまで待ってから実行する（それまではパッケージのインストール中で、`prisma: not found` になる）
+
    ```powershell
    docker compose exec app npx prisma migrate dev
    ```
