@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>メモ帳</title>
+  <!-- base：全画面で共通のスタイル -->
+  <link rel="stylesheet" href="/base/css/tokens.css">
+  <link rel="stylesheet" href="/base/css/reset.css">
+  <link rel="stylesheet" href="/base/css/layout.css">
+  <link rel="stylesheet" href="/base/css/components.css">
+  <script type="module" src="/base/js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">本文へ移動</a>
+
+  <!-- base：全画面で共通の枠（ヘッダーとナビゲーション） -->
+  <header class="app-header">
+    <a class="app-logo" href="/" data-link>メモ帳</a>
+    <nav class="app-nav" aria-label="メイン">
+      <a class="app-nav-link" href="/" data-link>メモ</a>
+    </nav>
+  </header>
+
+  <!-- main：ここに各画面（main/ 以下）が表示される -->
+  <main id="main" class="app-main" tabindex="-1"></main>
+</body>
+</html>

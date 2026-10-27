@@ -1,38 +1,38 @@
-# 特定のバージョンを指定し、このファイル内で使用できる文法が固定
-# version: '3'
-
-# 起動したいコンテナを定義。本記事では3つのコンテナ（nginx、app、mysql）を定義
+# 起動したいコンテナを定義。app（Node.js + Express）、mysql、phpmyadmin の3つ
 services:
-  # Nginxの定義
-  nginx:
-    # Nginxコンテナに使用するイメージを指定
-    image: nginx:1.29.7
+  # Node.js + Express（WebAPI・WebSocket・画面の配信）の定義
+  app:
+    build:
+      # Dockerfile を格納するフォルダのパス
+      context: ./docker/app
+      # Dockerfile のファイル名
+      dockerfile: Dockerfile
+    # 起動するたびにパッケージを揃え、Prisma Client を作ってから tsx で起動（変更時に自動再起動）
+    command: sh -c "npm install && npx prisma generate && npm run dev"
     # ホストマシンのポートをコンテナのポートにマッピング
     ports:
       # <ホストマシンのポート>:<コンテナのポート>
-      - 8000:80
+      - 3000:3000
     volumes:
-      # ./htdocsフォルダをコンテナ内の/var/www/htmlにマウント
-      - ./htdocs:/var/www/html
-      # ./docker/nginxフォルダをコンテナ内の/etc/nginx/conf.dにマウント
-      - ./docker/nginx:/etc/nginx/conf.d
-    # 依存関係を設定  # app:
+      # ./app フォルダをコンテナ内の /app にマウント
+      - ./app:/app
+      # node_modules はコンテナ専用にする（Windows 側のものと混ざらないように）
+      - /app/node_modules
+    environment:
+      PORT: 3000
+      # Prisma が MySQL に接続するための URL（ホスト名は mysql サービス名）
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      # タイトル自動補完の日付（メモ(YYYY-MM-DD)）を日本時間にする
+      TZ: Asia/Tokyo
+      # Windows のフォルダをマウントするとファイル変更の通知が届かないので、
+      # tsx watch に定期的な確認（ポーリング）で変更を検知させる
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
+    # MySQL が起動しきってから起動する
     depends_on:
-      - app
-  # PHP-FPMの定義
-  app:
-    build:
-      # Dockerfileを格納するフォルダのパス
-      context: ./docker/php
-      # Dockerfileのファイル名
-      dockerfile: Dockerfile
-    volumes:
-      # ./htdocsフォルダをコンテナ内の/var/www/htmlにマウント
-      - ./htdocs:/var/www/html   
-    # 依存関係を設定
-    depends_on:
-      - mysql
-  # MySQLの定義
+      mysql:
+        condition: service_healthy
+  # MySQL の定義
   mysql:
     # MySQL コンテナに使用するイメージを指定
     image: mysql:8.4.8
@@ -42,13 +42,31 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Tokyo
     volumes:
       # 名前付きボリュームを MySQL コンテナに紐づける
       - mysqldata:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
-      # - ./docker/mysql/sql:/docker-entrypoint-initdb.d
+      # ボリュームを初めて作るときに実行するスクリプト
+      - ./docker/mysql/initdb:/docker-entrypoint-initdb.d
     ports:
       - 3306:3306
+    # 接続できる状態になったかを確認する
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  # phpMyAdmin の定義
+  phpmyadmin:
+    image: phpmyadmin:5.2.3
+    environment:
+      # 接続先の MySQL（サービス名）
+      PMA_HOST: mysql
+    ports:
+      - 8080:80
+    depends_on:
+      - mysql
 volumes:
   # 名前付きボリュームの作成
   mysqldata:

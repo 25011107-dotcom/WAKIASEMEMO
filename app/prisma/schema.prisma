@@ -1,0 +1,27 @@
+// Prisma のスキーマファイル
+// テーブルを変更したら `docker compose exec app npx prisma migrate dev --name <変更内容>` を実行する
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// メモ（仕様書「8. API設計」のメモオブジェクト）
+model Memo {
+  id        Int      @id @default(autoincrement())
+  // 100文字以内（N-02）
+  title     String   @db.VarChar(100)
+  // 10,000文字以内（N-02）
+  content   String   @db.Text
+  // 論理削除フラグ（N-01）
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("memos")
+}
