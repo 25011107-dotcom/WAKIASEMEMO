@@ -1,5 +1,5 @@
 <?php
-$title = "hello,world!";
+$title = "ここがメモ帳のホーム画面になります";
 ?>
 <!DOCTYPE html>
 <html lang="ja">
