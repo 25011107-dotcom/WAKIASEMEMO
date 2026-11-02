@@ -1,1 +1,182 @@
 /* メモ画面だけで使うスタイル。値は base/css/tokens.css のトークンを使う */
+
+/* 左に一覧、右にエディタ */
+.memos {
+  display: grid;
+  grid-template-columns: 20em minmax(0, 1fr);
+  height: 100%;
+}
+
+.memos-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+  padding: var(--space-4);
+  border-right: var(--border-width) solid var(--color-border);
+}
+
+.memos-heading {
+  font-weight: 900;
+  font-size: var(--font-size-xl);
+  line-height: 1.2;
+}
+
+.memos-sort {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-weight: bold;
+}
+
+.memos-sort-select {
+  font-weight: normal;
+}
+
+.memos-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.memos-empty {
+  padding: var(--space-6) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  font-weight: bold;
+  text-align: center;
+}
+
+/* エディタは、タイトル・本文・操作を線で区切ったセルにする */
+.memos-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 本文はノートの1ページ。紙の繊維と、綴じ側に落ちる影を重ねる */
+.memos-page {
+  --memos-note-print: #6b92ad;
+  --memos-note-ink: #3b3833;
+  --memos-note-font: "BIZ UDGothic", "Hiragino Sans", monospace;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    linear-gradient(to right, rgb(44 36 21 / 0.1), transparent 2.5em),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.38 0 0 0 0 0.26 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23f)'/%3E%3C/svg%3E") 0 0 / 20em 20em,
+    var(--color-surface);
+}
+
+.memos-page:focus-within {
+  outline: 0.1875em solid var(--color-focus);
+  outline-offset: -0.1875em;
+}
+
+/* ページの上に印刷された No. と Date の欄（飾り） */
+.memos-page-print {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  padding: var(--space-2) var(--space-6);
+  color: var(--memos-note-print);
+  font-size: var(--font-size-sm);
+  white-space: pre;
+}
+
+/*
+ * タイトルはページの先頭に、本文の2倍の大きさで書く。1字がドット2つ分、高さが罫線2行分になる
+ * 罫線とドットの絵は本文と同じ間隔で、2行分の下の端にだけ線を引く
+ */
+.memos-title {
+  --memos-page-x: 0.6em;
+  flex-shrink: 0;
+  height: 1.75em;
+  padding: 0 var(--memos-page-x);
+  border: 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 70'%3E%3Crect y='68' width='100' height='1.1' fill='%23a9c3d6'/%3E%3Cg fill='%237fa3bf'%3E%3Ccircle cx='20' cy='68.55' r='1.05'/%3E%3Ccircle cx='40' cy='68.55' r='1.05'/%3E%3Ccircle cx='60' cy='68.55' r='1.05'/%3E%3Ccircle cx='80' cy='68.55' r='1.05'/%3E%3C/g%3E%3Cg fill='%235f8aaa'%3E%3Ccircle cx='0' cy='68.55' r='1.7'/%3E%3Ccircle cx='100' cy='68.55' r='1.7'/%3E%3C/g%3E%3C/svg%3E")
+      var(--memos-page-x) 0 / 2.5em 1.75em local;
+  color: var(--memos-note-ink);
+  font-family: "UD Digi Kyokasho N-B", "UD デジタル 教科書体 N-B", var(--memos-note-font);
+  font-weight: bold;
+  font-size: calc(var(--font-size-lg) * 2);
+  line-height: 1.75em;
+}
+
+/*
+ * 罫線とドットの1枚絵（横5字分 × 1行分）。1字ごとに小さい点、5字ごとに大きい点が罫線に乗る
+ * 文字の幅が 1em になる等幅の教科書体を使い、点と1字の幅をそろえる
+ * 画像の中には var() を書けないので、色はここに直接書く
+ */
+.memos-content {
+  --memos-line: 1.75em;
+  --memos-page-x: 1.2em;
+  flex: 1;
+  min-height: calc(var(--memos-line) * 9);
+  padding: 0 var(--memos-page-x) var(--memos-line);
+  border: 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 35'%3E%3Crect y='33' width='100' height='1.1' fill='%23a9c3d6'/%3E%3Cg fill='%237fa3bf'%3E%3Ccircle cx='20' cy='33.55' r='1.05'/%3E%3Ccircle cx='40' cy='33.55' r='1.05'/%3E%3Ccircle cx='60' cy='33.55' r='1.05'/%3E%3Ccircle cx='80' cy='33.55' r='1.05'/%3E%3C/g%3E%3Cg fill='%235f8aaa'%3E%3Ccircle cx='0' cy='33.55' r='1.7'/%3E%3Ccircle cx='100' cy='33.55' r='1.7'/%3E%3C/g%3E%3C/svg%3E")
+      var(--memos-page-x) 0 / 5em var(--memos-line) local;
+  color: var(--memos-note-ink);
+  font-family: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", var(--memos-note-font);
+  font-size: var(--font-size-lg);
+  line-height: var(--memos-line);
+  resize: none;
+}
+
+/* フォーカスの枠は、ページ全体（.memos-page）に出す */
+.memos-title:focus-visible,
+.memos-content:focus-visible {
+  outline: none;
+}
+
+.memos-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.memos-status {
+  flex: 1;
+  min-width: 12em;
+  font-family: var(--font-mono);
+}
+
+/* 幅が 40em 以下のときは、一覧を上、エディタを下に縦並びにする（N-05） */
+@media (max-width: 40em) {
+  .memos {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .memos-sidebar {
+    border-right: 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+
+  .memos-list {
+    max-height: 12em;
+  }
+
+  .memos-page-print,
+  .memos-actions {
+    padding-inline: var(--space-4);
+  }
+
+  /* 文字の大きさの分だけ小さい値にして、タイトルと本文の左をそろえる */
+  .memos-title {
+    --memos-page-x: 0.4em;
+  }
+
+  .memos-content {
+    --memos-page-x: 0.8em;
+  }
+}
