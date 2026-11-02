@@ -12,6 +12,8 @@ datasource db {
 }
 
 // メモ（仕様書「8. API設計」のメモオブジェクト）
+// 設計の理由は docs/database.md を参照
+// CHECK 制約は Prisma のスキーマに書けないので、マイグレーションの SQL に直接書いている
 model Memo {
   id        Int      @id @default(autoincrement())
   // 100文字以内（N-02）
@@ -23,5 +25,7 @@ model Memo {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // 一覧取得（未削除を更新日時の降順。F-01）用
+  @@index([isDeleted, updatedAt], map: "idx_memos_is_deleted_updated_at")
   @@map("memos")
 }
