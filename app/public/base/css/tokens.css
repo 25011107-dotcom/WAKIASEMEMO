@@ -5,24 +5,27 @@
  */
 
 :root {
-  /* 色（ライト） */
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f0f3f9;
-  --color-border: #e2e5ea;
-  --color-text: #1f2328;
-  --color-text-muted: #6b7280;
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-on-primary: #ffffff;
-  --color-danger: #dc2626;
-  --color-focus: #93b4fb;
+  /* 色（#f6f0e4 を軸にした明るい配色） */
+  --color-bg: #f6f0e4;
+  --color-surface: #fffaf0;
+  --color-surface-hover: #efe5d2;
+  --color-border: #2c2415;
+  --color-text: #2c2415;
+  --color-text-muted: #6b5d45;
+  /* 琥珀色は生成りの上の文字に使わない（コントラスト不足）。ボタンの面や線に使う */
+  --color-primary: #c88a16;
+  --color-primary-hover: #d89b27;
+  --color-on-primary: #2c2415;
+  --color-danger: #a8321f;
+  --color-focus: #8a5d0c;
 
   /* 文字 */
   --font-sans: system-ui, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Consolas", "BIZ UDGothic", monospace;
   --font-size-sm: 0.875em;
   --font-size-lg: 1.25em;
   --font-size-xl: 1.5em;
+  --font-size-2xl: 2em;
   --line-height: 1.6;
 
   /* 余白 */
@@ -34,12 +37,12 @@
   --space-8: 2em;
 
   /* 角丸・線・影 */
-  --radius-sm: 0.375em;
-  --radius-md: 0.5em;
-  --radius-lg: 0.75em;
-  --border-width: 0.0625em;
-  --shadow-sm: 0 0.0625em 0.125em rgb(0 0 0 / 0.06);
-  --shadow-md: 0 0.25em 0.75em rgb(0 0 0 / 0.08);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --border-width: 0.1875em;
+  --shadow-offset: 0.375em;
+  --shadow-hard: var(--shadow-offset) var(--shadow-offset) 0 var(--color-text);
 
   /* 動き */
   --duration-fast: 120ms;
@@ -49,21 +52,6 @@
   /* レイアウト */
   --header-height: 3.5em;
   --content-max-width: 72em;
-}
-
-/* 色（ダーク）：OS の設定に合わせる */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0f1115;
-    --color-surface: #171a21;
-    --color-surface-hover: #1f2430;
-    --color-border: #2a2f3a;
-    --color-text: #e6e8eb;
-    --color-text-muted: #9aa3b2;
-    --color-primary: #4f8cff;
-    --color-primary-hover: #6b9dff;
-    --color-focus: #2f5bb8;
-  }
 }
 
 /* 動きを減らす設定の人には、アニメーションをほぼ止める */

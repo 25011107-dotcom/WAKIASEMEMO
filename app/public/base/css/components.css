@@ -12,35 +12,46 @@
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  box-shadow: var(--shadow-hard);
+  font-weight: bold;
   cursor: pointer;
   transition:
-    background var(--duration-fast) var(--easing),
-    border-color var(--duration-fast) var(--easing);
+    transform var(--duration-fast) var(--easing),
+    box-shadow var(--duration-fast) var(--easing);
 }
 
-.button:hover {
+.button:hover:not(:disabled) {
   background: var(--color-surface-hover);
 }
 
+/* 押すと影の位置まで沈む */
+.button:active:not(:disabled) {
+  box-shadow: none;
+  transform: translate(var(--shadow-offset), var(--shadow-offset));
+}
+
 .button:disabled {
+  box-shadow: none;
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 .button-primary {
-  border-color: var(--color-primary);
   color: var(--color-on-primary);
   background: var(--color-primary);
 }
 
-.button-primary:hover {
-  border-color: var(--color-primary-hover);
+.button-primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
 }
 
 .button-danger {
-  border-color: var(--color-danger);
   color: var(--color-danger);
+}
+
+.button-danger:hover:not(:disabled) {
+  color: var(--color-bg);
+  background: var(--color-danger);
 }
 
 .input {
@@ -49,11 +60,6 @@
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  transition: border-color var(--duration-fast) var(--easing);
-}
-
-.input:focus {
-  border-color: var(--color-primary);
 }
 
 /* 画面の中身を置くときの標準の幅と余白 */
@@ -65,5 +71,6 @@
 
 .screen-title {
   margin-bottom: var(--space-4);
+  font-weight: 900;
   font-size: var(--font-size-xl);
 }
