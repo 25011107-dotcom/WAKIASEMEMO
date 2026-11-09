@@ -34,9 +34,48 @@
 }
 
 .memos-list {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: 0;
   overflow: auto;
+}
+
+/* 一覧の1件。押すとエディタに読み込む */
+.memos-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--easing);
+}
+
+.memos-item:hover {
+  background: var(--color-surface-hover);
+}
+
+/* 編集中のメモ */
+.memos-item[aria-current="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.memos-item-title {
+  overflow: hidden;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memos-item-date {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
 }
 
 .memos-empty {
@@ -140,6 +179,19 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-6);
   border-top: var(--border-width) solid var(--color-border);
+}
+
+/* 未保存の変更があるときの印 */
+.memos-dirty {
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-danger);
+  color: var(--color-danger);
+  font-weight: bold;
+  font-size: var(--font-size-sm);
+}
+
+.memos-dirty[hidden] {
+  display: none;
 }
 
 .memos-status {
