@@ -22,7 +22,7 @@ services:
     environment:
       PORT: 3000
       # Prisma が MySQL に接続するための URL（ホスト名は mysql サービス名）
-      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}?allowPublickeyRetrieval=true
       # タイトル自動補完の日付（メモ(YYYY-MM-DD)）を日本時間にする
       TZ: Asia/Tokyo
       # Windows のフォルダをマウントするとファイル変更の通知が届かないので、
