@@ -17,11 +17,25 @@ function parseId(raw: string | string[] | undefined): number {
 
 // POST・PUT のリクエストボディを、保存する値に整える
 function toMemoInput(body: unknown): { title: string; content: string } {
-  // TODO(F-09): title は defaultTitle() で補完する
-  // TODO: content は文字列でなければ空文字にする
-  // TODO(N-02): title が TITLE_MAX_LENGTH、content が CONTENT_MAX_LENGTH を超えたら throw する
-  //             （仕様書の現行実装に合わせて 500 で返す。T-API-05・06）
-  throw new Error("未実装です");
+  const { title, content } = (body ?? {}) as {
+    title?: unknown;
+    content?: unknown;
+  };
+
+  // F-09: 空なら「メモ(YYYY-MM-DD)」
+  const memoTitle = defaultTitle(title);
+  const memoContent = typeof content === "string" ? content : "";
+
+  // N-02: DB と同じく絵文字も1文字と数える
+  // 超えたら 500（T-API-05・06）
+  if ([...memoTitle].length > TITLE_MAX_LENGTH) {
+    throw new Error("タイトルが長すぎます");
+  }
+  if ([...memoContent].length > CONTENT_MAX_LENGTH) {
+    throw new Error("本文が長すぎます");
+  }
+
+  return { title: memoTitle, content: memoContent };
 }
 
 // 変更を起こしたクライアントの X-Client-Id（イベントの originId になる）
