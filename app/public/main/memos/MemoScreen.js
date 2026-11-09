@@ -14,6 +14,9 @@ const SORT_OPTIONS = [
 ];
 
 const API_BASE = "/api/memos";
+// 再接続までの待ち時間。失敗するたびに倍にして、最大 30 秒（N-03）
+const RECONNECT_MIN_DELAY = 1000;
+const RECONNECT_MAX_DELAY = 30000;
 // 下書きを保存する LocalStorage のキー（F-06）
 const DRAFT_KEY = "memo-app:draft";
 
@@ -93,6 +96,15 @@ export default class MemoScreen extends Screen {
   // 保存・削除の通信中は、ボタンを押せないようにする
   #busy = false;
 
+  // WebSocket（F-08）
+  #ws = null;
+  #reconnectTimer = null;
+  #reconnectDelay = RECONNECT_MIN_DELAY;
+  // 接続が切れている間は true。つながり直したら一覧を取り直す
+  #disconnected = false;
+  // 画面を閉じたら true。再接続しない
+  #closed = false;
+
   // 画面の部品
   #list;
   #sortSelect;
@@ -119,9 +131,120 @@ export default class MemoScreen extends Screen {
     container.append(root);
     document.addEventListener("keydown", this.#onKeydown);
 
-    // TODO: WebSocket での同期（F-08）をつなぐ
+    // 一覧を取っている間の変更も受け取れるように、先につなぐ
+    this.#connect();
     const loaded = await this.#loadMemos();
     this.#restoreDraft(loaded);
+  }
+
+  // ---- WebSocket での同期（F-08 / N-03） ----
+
+  #connect() {
+    if (this.#closed) {
+      return;
+    }
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+    this.#ws = ws;
+
+    ws.addEventListener("open", () => {
+      this.#reconnectDelay = RECONNECT_MIN_DELAY;
+      if (this.#disconnected) {
+        this.#disconnected = false;
+        this.#resync();
+      }
+    });
+
+    ws.addEventListener("message", (e) => {
+      let event;
+      try {
+        event = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      this.#applyEvent(event);
+    });
+
+    ws.addEventListener("close", () => {
+      if (this.#closed) {
+        return;
+      }
+      if (!this.#disconnected) {
+        this.#disconnected = true;
+        this.#setStatus("サーバーとの接続が切れました。再接続しています…");
+      }
+      this.#reconnectTimer = setTimeout(() => this.#connect(), this.#reconnectDelay);
+      this.#reconnectDelay = Math.min(this.#reconnectDelay * 2, RECONNECT_MAX_DELAY);
+    });
+  }
+
+  // 切れている間のイベントは届かないので、一覧を取り直して追いつく
+  async #resync() {
+    if (!(await this.#loadMemos())) {
+      return;
+    }
+    const memo = this.#memos.find((m) => m.id === this.#selectedId);
+    if (this.#selectedId !== null && !memo) {
+      this.#onSelectedDeleted();
+    } else if (memo && !this.#isDirty()) {
+      this.#edit(memo);
+      this.#setStatus("再接続しました");
+    } else {
+      this.#setStatus("再接続しました");
+    }
+  }
+
+  // ほかの画面（タブ）での変更を反映する
+  #applyEvent(event) {
+    // 自分の変更は、API の結果ですでに反映している
+    if (!event || event.originId === this.#clientId) {
+      return;
+    }
+
+    if (event.type === "created" || event.type === "updated") {
+      const memo = event.memo;
+      if (!memo || !Number.isInteger(memo.id)) {
+        return;
+      }
+      this.#memos = [memo, ...this.#memos.filter((m) => m.id !== memo.id)];
+      if (memo.id === this.#selectedId) {
+        if (this.#isDirty()) {
+          // 書きかけの内容は消さない。保存すると最後に保存した方が残る
+          this.#setStatus("ほかの画面でこのメモが更新されました。保存すると、いま書いている内容で上書きします");
+        } else {
+          this.#edit(memo);
+          this.#setStatus("ほかの画面で更新された内容を表示しています");
+        }
+      }
+      this.#renderList();
+    } else if (event.type === "deleted") {
+      this.#memos = this.#memos.filter((m) => m.id !== event.id);
+      if (event.id === this.#selectedId) {
+        this.#onSelectedDeleted();
+      }
+      this.#renderList();
+    }
+  }
+
+  // 編集中のメモがほかの画面で削除された
+  #onSelectedDeleted() {
+    if (this.#isDirty()) {
+      this.#continueAsNew("このメモはほかの画面で削除されました。保存すると新しいメモとして作成します");
+    } else {
+      this.#edit(null);
+      this.#setStatus("このメモはほかの画面で削除されました");
+    }
+  }
+
+  // 書いている内容は残したまま、新規作成に切り替える
+  #continueAsNew(message) {
+    this.#selectedId = null;
+    this.#saved = { title: "", content: "" };
+    this.#updatePrint(null);
+    this.#updateButtons();
+    this.#onInput();
+    this.#renderList();
+    this.#setStatus(message);
   }
 
   // ---- API ----
@@ -253,11 +376,7 @@ export default class MemoScreen extends Screen {
       if (err.status === 404) {
         // ほかの画面で削除されていた。書いた内容は残して、新規メモとして続けられるようにする
         this.#forgetMemo(id);
-        this.#selectedId = null;
-        this.#saved = { title: "", content: "" };
-        this.#updatePrint(null);
-        this.#onInput();
-        this.#setStatus("このメモはほかの画面で削除されていました。もう一度保存すると新しいメモとして作成します");
+        this.#continueAsNew("このメモはほかの画面で削除されていました。もう一度保存すると新しいメモとして作成します");
       } else {
         this.#setStatus(`保存できませんでした：${err.message}`);
       }
@@ -512,8 +631,11 @@ export default class MemoScreen extends Screen {
     return this.#confirmDiscard();
   }
 
-  // TODO(F-08): WebSocket を始めたら、ここで切断する
+  // WebSocket を切断し、再接続もやめる
   unmount() {
+    this.#closed = true;
+    clearTimeout(this.#reconnectTimer);
+    this.#ws?.close();
     document.removeEventListener("keydown", this.#onKeydown);
   }
 }
