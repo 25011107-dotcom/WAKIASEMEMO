@@ -56,33 +56,51 @@ export async function list(_req: Request, res: Response) {
 // GET /api/memos/:id（F-01）
 export async function show(req: Request, res: Response) {
   const id = parseId(req.params.id);
-  // TODO: 未削除のメモを1件取得して 200 で返す
-  //       なければ throw new HttpError(404, "見つかりません")
-  throw new HttpError(501, "未実装です");
+  const memo = await prisma.memo.findFirst({
+    where: { id, isDeleted: false },
+  });
+  if (!memo) {
+    throw new HttpError(404, "見つかりません");
+  }
+  res.json(memo);
 }
 
 // POST /api/memos（F-02）
 export async function create(req: Request, res: Response) {
-  // TODO: toMemoInput(req.body) の値で prisma.memo.create() する
-  // TODO(F-08): broadcast({ type: "created", memo, originId: originIdOf(req) }) で配信する
-  // TODO: res.status(201).json(memo) で返す
-  throw new HttpError(501, "未実装です");
+  const memo = await prisma.memo.create({ data: toMemoInput(req.body) });
+  // F-08: 保存してから配信し、そのあと返す
+  broadcast({ type: "created", memo, originId: originIdOf(req) });
+  res.status(201).json(memo);
 }
 
 // PUT /api/memos/:id（F-03）
 export async function update(req: Request, res: Response) {
   const id = parseId(req.params.id);
-  // TODO: 未削除のメモを toMemoInput(req.body) の値で上書きする
-  //       対象がない・削除済みなら throw new HttpError(404, "見つかりません")
-  // TODO(F-08): "updated" イベントを配信して、200 で更新後のメモを返す
-  throw new HttpError(501, "未実装です");
+  const data = toMemoInput(req.body);
+  const found = await prisma.memo.findFirst({
+    where: { id, isDeleted: false },
+  });
+  if (!found) {
+    throw new HttpError(404, "見つかりません");
+  }
+
+  const memo = await prisma.memo.update({ where: { id }, data });
+  broadcast({ type: "updated", memo, originId: originIdOf(req) });
+  res.json(memo);
 }
 
 // DELETE /api/memos/:id（F-04）
 export async function remove(req: Request, res: Response) {
   const id = parseId(req.params.id);
-  // TODO: isDeleted を true にする（物理削除はしない。N-01）
-  //       対象がない・削除済みなら throw new HttpError(404, "見つかりません")
-  // TODO(F-08): "deleted" イベント（{ type, id, originId }）を配信して、res.status(204).end() で返す
-  throw new HttpError(501, "未実装です");
+  const found = await prisma.memo.findFirst({
+    where: { id, isDeleted: false },
+  });
+  if (!found) {
+    throw new HttpError(404, "見つかりません");
+  }
+
+  // N-01: 物理削除はしない
+  await prisma.memo.update({ where: { id }, data: { isDeleted: true } });
+  broadcast({ type: "deleted", id, originId: originIdOf(req) });
+  res.status(204).end();
 }

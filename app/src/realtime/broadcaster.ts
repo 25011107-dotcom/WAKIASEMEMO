@@ -12,11 +12,28 @@ let wss: WebSocketServer | undefined;
 export function setupRealtime(server: Server) {
   wss = new WebSocketServer({ server, path: "/ws" });
 
+  // pong が返ってきた接続
+  const alive = new WeakSet<WebSocket>();
+
   wss.on("connection", (ws) => {
     ws.on("error", console.error);
+    alive.add(ws);
+    ws.on("pong", () => alive.add(ws));
   });
 
-  // TODO(N-03): 30秒ごとに ping を送り、pong が返ってこない接続を terminate() する
+  // N-03: 30秒ごとに ping、前回の pong がない接続は切る
+  const timer = setInterval(() => {
+    for (const client of wss!.clients) {
+      if (!alive.has(client)) {
+        client.terminate();
+        continue;
+      }
+      alive.delete(client);
+      client.ping();
+    }
+  }, 30_000);
+
+  wss.on("close", () => clearInterval(timer));
 }
 
 // 接続中の全クライアントへイベントを送る（ブロードキャスト）
