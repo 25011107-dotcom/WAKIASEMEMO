@@ -167,11 +167,14 @@ function readDraft() {
   return null;
 }
 
+// 保存できたら true を返す
 function writeDraft(draft) {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    return true;
   } catch {
     // 保存できなくても編集は続けられる
+    return false;
   }
 }
 
@@ -454,14 +457,18 @@ export default class MemoScreen extends Screen {
   }
 
   // 入力のたびに、下書きと「未保存」の印を更新する
-  #onInput() {
+  // fromUser：利用者の入力によるときは true。「下書きを保存しました」と表示する（T-DRF-01）
+  #onInput(fromUser = false) {
     const dirty = this.#isDirty();
     if (dirty) {
-      writeDraft({
+      const saved = writeDraft({
         id: this.#selectedId,
         title: this.#titleInput.value,
         content: this.#contentInput.value,
       });
+      if (saved && fromUser) {
+        this.#setStatus("下書きを保存しました");
+      }
     } else {
       removeDraft();
     }
@@ -870,8 +877,8 @@ export default class MemoScreen extends Screen {
       title: "保存（Ctrl+S）",
     });
 
-    titleInput.addEventListener("input", () => this.#onInput());
-    contentInput.addEventListener("input", () => this.#onInput());
+    titleInput.addEventListener("input", () => this.#onInput(true));
+    contentInput.addEventListener("input", () => this.#onInput(true));
     saveButton.addEventListener("click", () => this.#onSave());
     deleteButton.addEventListener("click", () => this.#onDelete());
     this.#book = book;
