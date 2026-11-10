@@ -40,6 +40,117 @@ function sortMemos(memos, sortValue) {
   return [...memos].sort((a, b) => compare(a, b) * sign);
 }
 
+// ---- ページをめくる動き ----
+// めくる紙を、折り目の線で「まだ平らな部分」と「めくれた部分」に分けて描く
+// 折り目は右端から綴じ側（左端）へ動き、下の角から先にめくれるように少し斜めになる
+
+// 1回めくるのにかける時間（ミリ秒）
+const PAGE_TURN_DURATION = 800;
+// 紙の色（--color-surface）と、影の色（--color-text）。毎フレーム計算するので数値で持つ
+const PAPER_RGB = "255 250 240";
+const SHADOW_RGB = "44 36 21";
+
+// 0〜1 の進み具合を、ゆっくり始まってゆっくり終わる動きにする
+function easeInOut(t) {
+  return 0.5 - Math.cos(Math.PI * t) / 2;
+}
+
+// 幅 w・高さ h の長方形を、点 p を通り法線 n に垂直な直線で切る
+// side が 1 なら n の向き側、-1 なら反対側の多角形の頂点を返す
+function clipRect(w, h, p, n, side) {
+  const corners = [[0, 0], [w, 0], [w, h], [0, h]];
+  const distance = ([x, y]) => side * ((x - p[0]) * n[0] + (y - p[1]) * n[1]);
+  const points = [];
+  corners.forEach((a, i) => {
+    const b = corners[(i + 1) % corners.length];
+    const da = distance(a);
+    const db = distance(b);
+    if (da >= 0) {
+      points.push(a);
+    }
+    if (da >= 0 !== db >= 0) {
+      const r = da / (da - db);
+      points.push([a[0] + (b[0] - a[0]) * r, a[1] + (b[1] - a[1]) * r]);
+    }
+  });
+  return points;
+}
+
+function toPolygon(points) {
+  if (points.length < 3) {
+    return "polygon(0 0, 0 0, 0 0)";
+  }
+  return `polygon(${points.map(([x, y]) => `${x}px ${y}px`).join(", ")})`;
+}
+
+// 折り目に垂直なグラデーション。stops は [折り目からの距離(px), 色] の並び（n の向きが正）
+function foldGradient(w, h, p, n, stops) {
+  const length = Math.abs(w * n[0]) + Math.abs(h * n[1]);
+  const fold = (p[0] - w / 2) * n[0] + (p[1] - h / 2) * n[1] + length / 2;
+  const angle = Math.atan2(n[1], n[0]) + Math.PI / 2;
+  return `linear-gradient(${angle}rad, ${stops.map(([u, color]) => `${color} ${fold + u}px`).join(", ")})`;
+}
+
+function shadow(alpha) {
+  return `rgb(${SHADOW_RGB} / ${alpha})`;
+}
+
+// めくり具合 t（0：平ら、1：めくり終わり）の1コマを描く
+function drawPageTurn({ width: w, height: h, leaf, leafShade, flap, flapShade, flapHolder, underShade }, t) {
+  // 紙が浮いている度合い。めくり始めと終わりは 0、真ん中で 1
+  const lift = Math.sin(Math.PI * t);
+
+  // 折り目の線：上の端と下の端の位置。下の角が先にめくれるので、下の方が左に出る
+  const center = w * (1 - t);
+  const tilt = h * 0.22 * lift;
+  const top = center + tilt / 2;
+  const bottom = center - tilt / 2;
+  const length = Math.hypot(h, top - bottom);
+  // 折り目の法線（めくれる側＝右向き）
+  const n = [h / length, (top - bottom) / length];
+  const p = [top, 0];
+
+  // 平らな部分は折り目の左だけ見せる
+  leaf.style.clipPath = toPolygon(clipRect(w, h, p, n, -1));
+
+  // めくれた部分は、折り目の右を折り目で裏返し、浮いて丸まる分だけ折り目の方へ縮める
+  const curl = 1 - 0.45 * lift;
+  const angle = Math.atan2(n[1], n[0]);
+  flap.style.clipPath = toPolygon(clipRect(w, h, p, n, 1));
+  flap.style.transform =
+    `translate(${p[0]}px, ${p[1]}px) rotate(${angle}rad) scale(${-curl}, 1) ` +
+    `rotate(${-angle}rad) translate(${-p[0]}px, ${-p[1]}px)`;
+  // 裏は表の文字がうっすら透ける紙の色にして、丸まった面の明るさの差をつける
+  flapShade.style.background = [
+    foldGradient(w, h, p, n, [
+      [0, shadow(0.16 * lift)],
+      [w * 0.05, `rgb(255 255 255 / ${0.25 * lift})`],
+      [w * 0.25, shadow(0.02)],
+      [w * 0.7, shadow(0.14 * lift)],
+    ]),
+    `linear-gradient(rgb(${PAPER_RGB} / 0.86), rgb(${PAPER_RGB} / 0.86))`,
+  ].join(", ");
+  // 浮いた紙の影が、まだ平らな部分に落ちる
+  flapHolder.style.filter = `drop-shadow(${-0.6 * lift}em ${0.2 * lift}em ${1.2 * lift}em ${shadow(0.28 * lift)})`;
+
+  // 平らな部分も、折り目の近くは持ち上がりかけて少し暗くなる
+  leafShade.style.background = foldGradient(w, h, p, n, [
+    [-w * 0.18, shadow(0)],
+    [0, shadow(0.16 * lift)],
+  ]);
+  // 下の紙には、折り目のすぐ右に浮いた紙の影が落ちる
+  underShade.style.background = foldGradient(w, h, p, n, [
+    [0, shadow(0.38 * lift)],
+    [w * 0.08, shadow(0.12 * lift)],
+    [w * 0.3, shadow(0)],
+  ]);
+}
+
+// テキストエリアのスクロール位置を、写した紙にもそろえる
+function syncScroll(from, to) {
+  to.querySelector(".memos-content").scrollTop = from.querySelector(".memos-content").scrollTop;
+}
+
 // ---- 下書き（F-06） ----
 // プライベートブラウズなどで LocalStorage が使えないときは、下書きなしで動かす
 
@@ -95,6 +206,8 @@ export default class MemoScreen extends Screen {
   #saved = { title: "", content: "" };
   // 保存・削除の通信中は、ボタンを押せないようにする
   #busy = false;
+  // ページをめくっている間だけ入る、めくりを終わらせる関数
+  #endPageTurn = null;
 
   // WebSocket（F-08）
   #ws = null;
@@ -108,6 +221,8 @@ export default class MemoScreen extends Screen {
   // 画面の部品
   #list;
   #sortSelect;
+  #book;
+  #page;
   #titleInput;
   #contentInput;
   #printNo;
@@ -337,8 +452,11 @@ export default class MemoScreen extends Screen {
     if (this.#busy || !this.#confirmDiscard()) {
       return;
     }
-    this.#edit(null);
-    this.#setStatus("");
+    // 新しいメモは、ノートの次の白紙のページに書く
+    this.#turnPage(true, () => {
+      this.#edit(null);
+      this.#setStatus("");
+    });
     this.#titleInput.focus();
   }
 
@@ -347,8 +465,121 @@ export default class MemoScreen extends Screen {
     if (this.#busy || id === this.#selectedId || !this.#confirmDiscard()) {
       return;
     }
-    this.#edit(this.#memos.find((memo) => memo.id === id) ?? null);
-    this.#setStatus("");
+    const memo = this.#memos.find((m) => m.id === id) ?? null;
+    this.#turnPage(this.#isForwardTo(id), () => {
+      this.#edit(memo);
+      this.#setStatus("");
+    });
+  }
+
+  // ---- ページをめくる ----
+
+  // 一覧で下にあるメモへ移るときは次のページへ、上にあるメモへ戻るときは前のページへめくる
+  // 新規作成中から移るときは、次のページへめくる
+  #isForwardTo(id) {
+    const ids = sortMemos(this.#memos, this.#sortSelect.value).map((m) => m.id);
+    const from = ids.indexOf(this.#selectedId);
+    return from === -1 || ids.indexOf(id) > from;
+  }
+
+  // load() でページの中身を入れ替え、そのあいだを紙をめくる動きでつなぐ
+  //   次へ：前のページを写した紙（snapshot）をめくり上げて、下の新しいページを見せる
+  //   前へ：新しいページを綴じ側から戻してきて、写した前のページにかぶせる（次への逆再生）
+  #turnPage(forward, load) {
+    // めくっている途中なら、そこで終わらせてから次をめくる
+    this.#endPageTurn?.();
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      load();
+      return;
+    }
+
+    const page = this.#page;
+    const book = this.#book;
+    const scrollTop = this.#contentInput.scrollTop;
+    const snapshot = this.#copyPage(page);
+    load();
+    book.append(snapshot);
+    snapshot.querySelector(".memos-content").scrollTop = scrollTop;
+
+    // めくる紙（leaf）と、その下の紙（under）
+    const leaf = forward ? snapshot : page;
+    const under = forward ? page : snapshot;
+    leaf.style.zIndex = "1";
+
+    // めくれた部分（flap）は、leaf を写した紙を折り目で裏返して描く。表の文字が裏からうっすら透ける
+    const flap = this.#copyPage(leaf);
+    const flapShade = el("div", { className: "memos-page-shade" });
+    flap.append(flapShade);
+    const flapHolder = el("div", { className: "memos-page-flap" });
+    flapHolder.append(flap);
+    book.append(flapHolder);
+    syncScroll(leaf, flap);
+
+    const leafShade = el("div", { className: "memos-page-shade" });
+    const underShade = el("div", { className: "memos-page-shade" });
+    leaf.append(leafShade);
+    under.append(underShade);
+
+    const parts = {
+      width: book.clientWidth,
+      height: book.clientHeight,
+      leaf,
+      leafShade,
+      flap,
+      flapShade,
+      flapHolder,
+      underShade,
+    };
+
+    let frame = 0;
+    const start = performance.now();
+    const step = (now) => {
+      const x = Math.min((now - start) / PAGE_TURN_DURATION, 1);
+      const t = easeInOut(x);
+      drawPageTurn(parts, forward ? t : 1 - t);
+      if (x < 1) {
+        frame = requestAnimationFrame(step);
+      } else {
+        end();
+      }
+    };
+
+    const end = () => {
+      if (this.#endPageTurn !== end) {
+        return;
+      }
+      this.#endPageTurn = null;
+      cancelAnimationFrame(frame);
+      snapshot.remove();
+      flapHolder.remove();
+      leafShade.remove();
+      underShade.remove();
+      page.style.clipPath = "";
+      page.style.zIndex = "";
+    };
+    this.#endPageTurn = end;
+
+    drawPageTurn(parts, forward ? 0 : 1);
+    frame = requestAnimationFrame(step);
+  }
+
+  // ページを写した、さわれない紙を作る（入力欄の値も写す）
+  #copyPage(source) {
+    const copy = source.cloneNode(true);
+    copy.classList.add("memos-page-snapshot");
+    copy.inert = true;
+    copy.setAttribute("aria-hidden", "true");
+    copy.style.clipPath = "";
+    copy.style.zIndex = "";
+    for (const node of copy.querySelectorAll("[id]")) {
+      node.removeAttribute("id");
+    }
+    for (const node of copy.querySelectorAll(".memos-page-shade")) {
+      node.remove();
+    }
+    copy.querySelector(".memos-title").value = source.querySelector(".memos-title").value;
+    copy.querySelector(".memos-content").value = source.querySelector(".memos-content").value;
+    return copy;
   }
 
   // 「保存」：新規なら POST（F-02）、既存なら PUT（F-03）
@@ -583,6 +814,10 @@ export default class MemoScreen extends Screen {
     const page = el("div", { className: "memos-page" });
     page.append(print, titleInput, contentInput);
 
+    // ページを置く台。めくるときは、ここにページを写した紙を重ねる
+    const book = el("div", { className: "memos-book" });
+    book.append(page);
+
     // 未保存の変更があるときだけ出す印
     const dirtyMark = el("span", { className: "memos-dirty", textContent: "未保存", hidden: true });
 
@@ -609,6 +844,8 @@ export default class MemoScreen extends Screen {
     contentInput.addEventListener("input", () => this.#onInput());
     saveButton.addEventListener("click", () => this.#onSave());
     deleteButton.addEventListener("click", () => this.#onDelete());
+    this.#book = book;
+    this.#page = page;
     this.#titleInput = titleInput;
     this.#contentInput = contentInput;
     this.#printNo = printNo;
@@ -622,7 +859,7 @@ export default class MemoScreen extends Screen {
     const actions = el("div", { className: "memos-actions" });
     actions.append(dirtyMark, status, deleteButton, saveButton);
 
-    editor.append(page, actions);
+    editor.append(book, actions);
     return editor;
   }
 

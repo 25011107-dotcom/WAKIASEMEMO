@@ -92,11 +92,25 @@
   min-height: 0;
 }
 
+/*
+ * ページを置く台。めくるときは、ページを写した紙をここに重ねる
+ * めくり上げた紙が台の外（操作の欄やヘッダー）にはみ出さないように切り取る
+ */
+.memos-book {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* 本文はノートの1ページ。紙の繊維と、綴じ側に落ちる影を重ねる */
 .memos-page {
   --memos-note-print: #6b92ad;
   --memos-note-ink: #3b3833;
   --memos-note-font: "BIZ UDGothic", "Hiragino Sans", monospace;
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -170,6 +184,37 @@
 .memos-title:focus-visible,
 .memos-content:focus-visible {
   outline: none;
+}
+
+/*
+ * ---- ページをめくる（メモを選んだとき・新規のとき） ----
+ * 形と影は MemoScreen.js が毎フレーム計算して、clip-path・transform・background で描く
+ */
+
+/* ページを写した、さわれない紙 */
+.memos-page-snapshot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* めくれた部分（裏返した紙）を入れる層。紙の下に落ちる影（drop-shadow）をここに付ける */
+.memos-page-flap {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+
+.memos-page-flap > .memos-page-snapshot {
+  transform-origin: 0 0;
+}
+
+/* 紙の上に重ねる陰影 */
+.memos-page-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .memos-actions {
