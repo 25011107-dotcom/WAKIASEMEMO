@@ -898,6 +898,16 @@ export default class MemoScreen extends Screen {
     return this.#confirmDiscard();
   }
 
+  // タブを閉じる・再読み込みするときに使う（F-07）
+  // 確認は出さず、下書きも消さない（再読み込み後に下書きから復元できるように）
+  hasUnsavedChanges() {
+    // 画面の部品ができる前は、変更もない
+    if (!this.#titleInput || !this.#contentInput) {
+      return false;
+    }
+    return this.#isDirty();
+  }
+
   // WebSocket を切断し、再接続もやめる
   unmount() {
     this.#closed = true;

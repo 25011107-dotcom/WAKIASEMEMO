@@ -15,6 +15,13 @@ export class Screen {
     return true;
   }
 
+  // 保存していない変更があれば true を返す。確認ダイアログは出さない
+  // タブを閉じる・再読み込みするとき（beforeunload）に使う。beforeunload の中では
+  // confirm() が使えないので、確認はブラウザの離脱確認に任せる（F-07）
+  hasUnsavedChanges() {
+    return false;
+  }
+
   // 画面を閉じるときに呼ばれる。タイマーや WebSocket などの後片付けをする
   unmount() {}
 }

@@ -29,10 +29,13 @@ export class Router {
     // ブラウザの「戻る」「進む」
     window.addEventListener("popstate", () => this.#render());
 
-    // タブを閉じる・再読み込みするときも、画面に確認させる（F-07）
+    // タブを閉じる・再読み込みするとき、未保存の変更があればブラウザの離脱確認を出す（F-07）
+    // canLeave() は confirm() を出すが、beforeunload の中では confirm() がブラウザに止められるので使わない
     window.addEventListener("beforeunload", (e) => {
-      if (this.#current && !this.#current.canLeave()) {
+      if (this.#current?.hasUnsavedChanges()) {
         e.preventDefault();
+        // 古いブラウザ（Chrome 118 以前・Safari の一部）は returnValue を設定しないと確認を出さない
+        e.returnValue = "";
       }
     });
 
