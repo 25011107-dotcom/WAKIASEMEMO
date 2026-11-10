@@ -425,6 +425,11 @@ export default class MemoScreen extends Screen {
     if (!draft) {
       return;
     }
+    // 復元するかどうかを確認する。キャンセルなら下書きを消して、エディタは空のままにする
+    if (!confirm("保存していない下書きがあります。復元しますか？")) {
+      removeDraft();
+      return;
+    }
 
     const memo = draft.id === null ? null : this.#memos.find((m) => m.id === draft.id);
     if (memo || draft.id === null) {
