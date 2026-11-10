@@ -200,6 +200,8 @@ export default class MemoScreen extends Screen {
   #clientId = crypto.randomUUID();
   // 取得したメモ（未削除のみ）
   #memos = [];
+  // 削除されたと分かったメモの ID。ID は使い回されないので、ここにある ID のメモは二度と一覧に戻さない
+  #deletedIds = new Set();
   // 編集中のメモの ID。null のときは新規作成中
   #selectedId = null;
   // 最後に保存（または読み込み）したときの内容。未保存の変更があるかの判定に使う
@@ -321,6 +323,12 @@ export default class MemoScreen extends Screen {
       if (!memo || !Number.isInteger(memo.id)) {
         return;
       }
+      // 更新と削除がほぼ同時に起きると、削除済みのメモの「更新」が、削除の前にも後にも届くことがある
+      // 一覧には戻さず、削除として扱う
+      if (memo.isDeleted || this.#deletedIds.has(memo.id)) {
+        this.#onDeletedElsewhere(memo.id);
+        return;
+      }
       this.#memos = [memo, ...this.#memos.filter((m) => m.id !== memo.id)];
       if (memo.id === this.#selectedId) {
         if (this.#isDirty()) {
@@ -333,11 +341,20 @@ export default class MemoScreen extends Screen {
       }
       this.#renderList();
     } else if (event.type === "deleted") {
-      this.#memos = this.#memos.filter((m) => m.id !== event.id);
-      if (event.id === this.#selectedId) {
-        this.#onSelectedDeleted();
+      if (Number.isInteger(event.id)) {
+        this.#onDeletedElsewhere(event.id);
       }
-      this.#renderList();
+    }
+  }
+
+  // ほかの画面でメモが削除された。同じメモの知らせが2回来ても、2回目は何もしない
+  #onDeletedElsewhere(id) {
+    if (this.#deletedIds.has(id)) {
+      return;
+    }
+    this.#forgetMemo(id);
+    if (id === this.#selectedId) {
+      this.#onSelectedDeleted();
     }
   }
 
@@ -598,6 +615,12 @@ export default class MemoScreen extends Screen {
           ? await this.#request("POST", "", body)
           : await this.#request("PUT", `/${id}`, body);
 
+      // 保存と同時にほかの画面で削除されると、保存は通っても、メモは削除済みのまま返ってくる
+      // 削除されていた（404）ときと同じに扱う
+      if (memo.isDeleted || this.#deletedIds.has(memo.id)) {
+        throw new ApiError(404, "見つかりません");
+      }
+
       // 一覧の中身を、サーバーが返した内容に置き換える
       this.#memos = [memo, ...this.#memos.filter((m) => m.id !== memo.id)];
       // タイトルが空のときはサーバーが「メモ(YYYY-MM-DD)」を入れるので、返った値を表示する（F-09）
@@ -662,8 +685,9 @@ export default class MemoScreen extends Screen {
     this.#renderList();
   }
 
-  // 一覧からメモを外す
+  // 削除されたメモを一覧から外す
   #forgetMemo(id) {
+    this.#deletedIds.add(id);
     this.#memos = this.#memos.filter((m) => m.id !== id);
     this.#renderList();
   }

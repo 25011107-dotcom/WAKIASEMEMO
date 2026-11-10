@@ -5,6 +5,8 @@ export class Router {
   #outlet;
   #appName;
   #current = null;
+  // 何回目の切り替えか。読み込みを待つ間に次の切り替えが始まったら、古い方はやめる
+  #renderCount = 0;
 
   // routes: [{ path: "/memos/:id", load: () => import("...") }]
   constructor({ routes, outlet, appName }) {
@@ -49,12 +51,27 @@ export class Router {
   }
 
   async #render() {
+    // 「戻る」「進む」を素早く押すと、前の切り替えの読み込みが終わる前に次の切り替えが始まる
+    // 読み込みの速さで終わる順番が入れ替わるので、いちばん新しい切り替えだけを画面に出す
+    const count = ++this.#renderCount;
+    const isOutdated = () => count !== this.#renderCount;
+
     const { route, params } = this.#match(location.pathname);
     const { default: ScreenClass } = await route.load();
+    if (isOutdated()) {
+      return;
+    }
     const screen = new ScreenClass();
     await loadStyles(screen.styles);
+    if (isOutdated()) {
+      return;
+    }
 
     const swap = async () => {
+      // アニメーションの開始を待つ間に、次の切り替えが始まることもある
+      if (isOutdated()) {
+        return;
+      }
       this.#current?.unmount();
       this.#outlet.replaceChildren();
       this.#current = screen;
@@ -63,9 +80,16 @@ export class Router {
 
     // 対応しているブラウザでは、画面切り替えをアニメーションさせる
     if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      await document.startViewTransition(swap).updateCallbackDone;
+      const transition = document.startViewTransition(swap);
+      // タブが裏にあるときなどはアニメーションだけ中止され、ready が失敗する（画面の切り替えは行われる）
+      // 受け取らないとコンソールにエラーが出るので、ここで受け止める
+      transition.ready.catch(() => {});
+      await transition.updateCallbackDone;
     } else {
       await swap();
+    }
+    if (isOutdated()) {
+      return;
     }
 
     document.title = screen.title ? `${screen.title} | ${this.#appName}` : this.#appName;
