@@ -436,9 +436,10 @@ export default class MemoScreen extends Screen {
       this.#edit(memo ?? null);
       this.#setStatus("下書きを復元しました");
     } else if (loaded) {
-      // 元のメモがもうない（ほかの画面で削除された）ので、新規メモとして戻す
-      this.#edit(null);
-      this.#setStatus("元のメモが見つからないため、下書きを新規メモとして復元しました");
+      // 元のメモが削除されたので、下書きは消す（T-DRF-07）
+      removeDraft();
+      this.#setStatus("元のメモが削除されていたため、下書きを削除しました");
+      return;
     } else {
       // 一覧が取れなかったときは、元のメモの ID のまま戻す（保存すると上書きになる）
       this.#edit(null);
